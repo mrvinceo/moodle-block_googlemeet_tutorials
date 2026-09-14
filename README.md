@@ -56,8 +56,9 @@ The plugin stores tutorial slots, series metadata, student registrations, and Go
 
 ## Support
 
-- Issue tracker: *(add your GitHub Issues URL after publishing the repository)*
+- Issue tracker: https://github.com/mrvinceo/moodle-block_googlemeet_tutorials/issues
 - Documentation: this README
+- Source: https://github.com/mrvinceo/moodle-block_googlemeet_tutorials
 
 ## Changelog
 
