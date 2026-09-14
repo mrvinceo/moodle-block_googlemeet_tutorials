@@ -1,0 +1,52 @@
+// This file is part of Moodle - http://moodle.org/
+
+define(['jquery'], function($) {
+    'use strict';
+
+    /**
+     * @param {string} labelsUrl AJAX endpoint URL (with courseid and sesskey)
+     * @param {number} courseid Course id
+     */
+    var init = function(labelsUrl, courseid) {
+        var $form = $('#id_repeat_preset').closest('form');
+        if (!$form.length) {
+            return;
+        }
+
+        var updateLabels = function() {
+            var year = $form.find('[name="timestart[year]"]').val();
+            var month = $form.find('[name="timestart[month]"]').val();
+            var day = $form.find('[name="timestart[day]"]').val();
+            var hour = $form.find('[name="timestart[hour]"]').val();
+            var minute = $form.find('[name="timestart[minute]"]').val();
+            if (!year || !month || !day) {
+                return;
+            }
+
+            var $preset = $('#id_repeat_preset');
+            var current = $preset.val();
+
+            $.getJSON(labelsUrl, {
+                sesskey: M.cfg.sesskey,
+                courseid: courseid,
+                year: year,
+                month: month,
+                day: day,
+                hour: hour,
+                minute: minute
+            }).done(function(options) {
+                $preset.empty();
+                options.forEach(function(opt) {
+                    $preset.append($('<option>', {value: opt.key, text: opt.label}));
+                });
+                if (current && $preset.find('option[value="' + current + '"]').length) {
+                    $preset.val(current);
+                }
+            });
+        };
+
+        $form.on('change', '[name^="timestart"]', updateLabels);
+    };
+
+    return {init: init};
+});

@@ -1,0 +1,16 @@
+{
+    "name": "moodle/block_googlemeet_tutorials",
+    "description": "Google API client for Moodle Google Meet tutorials block",
+    "type": "library",
+    "require": {
+        "google/apiclient": "^2.12"
+    },
+    "scripts": {
+        "pre-autoload-dump": "Google\\Task\\Composer::cleanup"
+    },
+    "extra": {
+        "google/apiclient-services": [
+            "Calendar"
+        ]
+    }
+}

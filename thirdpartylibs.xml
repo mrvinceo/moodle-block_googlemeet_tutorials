@@ -1,0 +1,83 @@
+<?xml version="1.0"?>
+<libraries>
+  <library>
+    <location>vendor/google/apiclient</location>
+    <name>Google API PHP Client</name>
+    <description>Client library for Google APIs.</description>
+    <version>2.x</version>
+    <license>Apache-2.0</license>
+    <repository>https://github.com/googleapis/google-api-php-client</repository>
+  </library>
+  <library>
+    <location>vendor/google/apiclient-services</location>
+    <name>Google API PHP Client Services</name>
+    <description>Auto-generated Google API service classes (Calendar subset).</description>
+    <version>various</version>
+    <license>Apache-2.0</license>
+    <repository>https://github.com/googleapis/google-api-php-client-services</repository>
+  </library>
+  <library>
+    <location>vendor/google/auth</location>
+    <name>Google Auth Library for PHP</name>
+    <description>Google Auth Library for PHP.</description>
+    <version>various</version>
+    <license>Apache-2.0</license>
+    <repository>https://github.com/googleapis/google-auth-library-php</repository>
+  </library>
+  <library>
+    <location>vendor/guzzlehttp</location>
+    <name>Guzzle</name>
+    <description>HTTP client and PSR-7 utilities used by the Google API client.</description>
+    <version>various</version>
+    <license>MIT</license>
+    <repository>https://github.com/guzzle/guzzle</repository>
+  </library>
+  <library>
+    <location>vendor/firebase/php-jwt</location>
+    <name>firebase/php-jwt</name>
+    <description>JWT encoding and decoding for PHP.</description>
+    <version>various</version>
+    <license>BSD-3-Clause</license>
+    <repository>https://github.com/firebase/php-jwt</repository>
+  </library>
+  <library>
+    <location>vendor/monolog/monolog</location>
+    <name>Monolog</name>
+    <description>Logging library used by the Google API client.</description>
+    <version>various</version>
+    <license>MIT</license>
+    <repository>https://github.com/Seldaek/monolog</repository>
+  </library>
+  <library>
+    <location>vendor/phpseclib/phpseclib</location>
+    <name>phpseclib</name>
+    <description>PHP Secure Communications Library.</description>
+    <version>various</version>
+    <license>MIT</license>
+    <repository>https://github.com/phpseclib/phpseclib</repository>
+  </library>
+  <library>
+    <location>vendor/psr</location>
+    <name>PSR interfaces</name>
+    <description>PSR HTTP message, client, factory, cache, and log interfaces.</description>
+    <version>various</version>
+    <license>MIT</license>
+    <repository>https://www.php-fig.org/</repository>
+  </library>
+  <library>
+    <location>vendor/ralouphie/getallheaders</location>
+    <name>getallheaders</name>
+    <description>getallheaders polyfill.</description>
+    <version>various</version>
+    <license>MIT</license>
+    <repository>https://github.com/ralouphie/getallheaders</repository>
+  </library>
+  <library>
+    <location>vendor/symfony/deprecation-contracts</location>
+    <name>symfony/deprecation-contracts</name>
+    <description>Symfony deprecation contracts.</description>
+    <version>various</version>
+    <license>MIT</license>
+    <repository>https://github.com/symfony/deprecation-contracts</repository>
+  </library>
+</libraries>
