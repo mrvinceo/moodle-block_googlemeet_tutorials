@@ -244,6 +244,11 @@ function block_googlemeet_tutorials_slot_visible_to_user(
     if (has_capability('block/googlemeet_tutorials:viewallslots', $context, $userid)) {
         return true;
     }
+    $usegroups = !isset($slot->usegroups) || (int) $slot->usegroups === 1;
+    if (!$usegroups) {
+        // Slot is open to all students who can view the schedule.
+        return true;
+    }
     return block_googlemeet_tutorials_users_share_course_group($courseid, $userid, (int) $slot->userid);
 }
 
@@ -380,21 +385,23 @@ function block_googlemeet_tutorials_register_user(
             if (empty($slot->googleeventid)) {
                 throw new moodle_exception('registrationfailed', 'block_googlemeet_tutorials');
             }
-            calendar_api::add_attendee(
+            $event = calendar_api::add_attendee(
                 $client,
                 $slot->googleeventid,
                 $email,
                 fullname($studentuser)
             );
+            block_googlemeet_tutorials_apply_google_event_to_slot($slot, $event, $tz);
             block_googlemeet_tutorials_persist_google_token($hostid, $client);
         } else {
             if (!empty($slot->googleeventid)) {
-                calendar_api::add_attendee(
+                $event = calendar_api::add_attendee(
                     $client,
                     $slot->googleeventid,
                     $email,
                     fullname($studentuser)
                 );
+                block_googlemeet_tutorials_apply_google_event_to_slot($slot, $event, $tz);
                 block_googlemeet_tutorials_persist_google_token($hostid, $client);
             } else {
                 $ge = calendar_api::create_meet_event(
@@ -417,7 +424,12 @@ function block_googlemeet_tutorials_register_user(
         if ($e instanceof moodle_exception) {
             throw $e;
         }
-        debugging('block_googlemeet_tutorials register_user: ' . $e->getMessage(), DEBUG_DEVELOPER);
+        // Never use debugging() with Google payloads here: under Whoops/developer
+        // mode it becomes a fatal user-facing notice.
+        error_log('block_googlemeet_tutorials register_user: ' . $e->getMessage());
+        if (calendar_api::is_rate_limit_error($e)) {
+            throw new moodle_exception('googleratelimit', 'block_googlemeet_tutorials');
+        }
         throw new moodle_exception('registrationfailed', 'block_googlemeet_tutorials');
     }
 
@@ -428,6 +440,116 @@ function block_googlemeet_tutorials_register_user(
         'timecreated' => time(),
     ];
     $DB->insert_record('block_googlemeet_tut_reg', $reg);
+}
+
+/**
+ * Update a Moodle slot's times/Meet URL from a Google Calendar event when they differ.
+ *
+ * @param \stdClass $slot
+ * @param \Google_Service_Calendar_Event $event
+ * @param string $fallbacktimezone
+ * @return bool True when the slot row was updated
+ */
+function block_googlemeet_tutorials_apply_google_event_to_slot(
+    \stdClass $slot,
+    $event,
+    string $fallbacktimezone
+): bool {
+    global $DB;
+
+    $data = calendar_api::event_time_data($event, $fallbacktimezone);
+    if (!$data) {
+        return false;
+    }
+
+    $changed = false;
+    if ((int) $slot->timestart !== (int) $data['timestart']) {
+        $slot->timestart = (int) $data['timestart'];
+        $changed = true;
+    }
+    if ((int) $slot->timeend !== (int) $data['timeend']) {
+        $slot->timeend = (int) $data['timeend'];
+        $changed = true;
+    }
+    if ($data['meeturl'] !== '' && (string) $slot->meeturl !== $data['meeturl']) {
+        $slot->meeturl = $data['meeturl'];
+        $changed = true;
+    }
+    if ($changed) {
+        $slot->timemodified = time();
+        $DB->update_record('block_googlemeet_tut_slot', $slot);
+    }
+    return $changed;
+}
+
+/**
+ * Pull current times/Meet URL for one slot from Google Calendar.
+ *
+ * @param \stdClass $slot
+ * @param \Google_Client $client
+ * @param string $fallbacktimezone
+ * @return bool
+ */
+function block_googlemeet_tutorials_sync_slot_from_google(
+    \stdClass $slot,
+    $client,
+    string $fallbacktimezone
+): bool {
+    if (empty($slot->googleeventid)) {
+        return false;
+    }
+    $event = calendar_api::get_event($client, $slot->googleeventid);
+    return block_googlemeet_tutorials_apply_google_event_to_slot($slot, $event, $fallbacktimezone);
+}
+
+/**
+ * Sync all of a host's Google-linked slots in a course from Calendar.
+ *
+ * @param int $courseid
+ * @param int $hostuserid
+ * @return int Number of slots updated
+ */
+function block_googlemeet_tutorials_sync_host_slots_from_google(int $courseid, int $hostuserid): int {
+    global $DB;
+
+    $client = block_googlemeet_tutorials_get_calendar_client($hostuserid);
+    if (!$client) {
+        throw new moodle_exception('googlenotconnected', 'block_googlemeet_tutorials');
+    }
+    $hostuser = core_user::get_user($hostuserid, '*', MUST_EXIST);
+    $tz = block_googlemeet_tutorials_user_timezone($hostuser);
+
+    $slots = $DB->get_records_select(
+        'block_googlemeet_tut_slot',
+        'userid = :u AND status = 1 AND googleeventid <> :empty
+         AND (courseid = :c OR scope = 1)',
+        ['u' => $hostuserid, 'c' => $courseid, 'empty' => ''],
+        'timestart ASC'
+    );
+
+    $updated = 0;
+    foreach ($slots as $slot) {
+        // Site-wide slots: only sync when host manages this course.
+        if ((int) ($slot->scope ?? 0) === 1 && (int) $slot->courseid !== $courseid) {
+            if (!block_googlemeet_tutorials_host_manages_in_course($hostuserid, $courseid)) {
+                continue;
+            }
+        }
+        try {
+            if (block_googlemeet_tutorials_sync_slot_from_google($slot, $client, $tz)) {
+                $updated++;
+            }
+        } catch (\Throwable $e) {
+            if (calendar_api::is_rate_limit_error($e)) {
+                throw new moodle_exception('googleratelimit', 'block_googlemeet_tutorials');
+            }
+            error_log('block_googlemeet_tutorials sync slot ' . $slot->id . ': ' . $e->getMessage());
+        }
+        // Small pause to reduce Calendar API burst usage.
+        usleep(200000);
+    }
+    block_googlemeet_tutorials_persist_google_token($hostuserid, $client);
+    return $updated;
 }
 
 function block_googlemeet_tutorials_unregister_user(\stdClass $slot, \stdClass $studentuser): void {
@@ -497,7 +619,8 @@ function block_googlemeet_tutorials_insert_slot(
     int $timestart,
     int $timeend,
     int $maxstudents,
-    int $scope = 0
+    int $scope = 0,
+    int $usegroups = 1
 ): int {
     global $DB;
 
@@ -524,6 +647,7 @@ function block_googlemeet_tutorials_insert_slot(
         'meeturl' => '',
         'status' => 1,
         'scope' => $scope,
+        'usegroups' => $usegroups ? 1 : 0,
         'timecreated' => time(),
         'timemodified' => time(),
     ];
@@ -557,7 +681,8 @@ function block_googlemeet_tutorials_update_slot(
     int $introformat,
     int $timestart,
     int $timeend,
-    int $maxstudents
+    int $maxstudents,
+    int $usegroups = 1
 ): void {
     global $DB;
 
@@ -625,6 +750,7 @@ function block_googlemeet_tutorials_update_slot(
     $old->timestart = $timestart;
     $old->timeend = $timeend;
     $old->maxstudents = $maxstudents;
+    $old->usegroups = $usegroups ? 1 : 0;
     $old->timemodified = time();
 
     $client = block_googlemeet_tutorials_get_calendar_client($hostuserid);
@@ -755,7 +881,8 @@ function block_googlemeet_tutorials_insert_series(
     int $timeend,
     int $maxstudents,
     array $recurrenceconfig,
-    int $scope = 0
+    int $scope = 0,
+    int $usegroups = 1
 ): int {
     global $DB;
 
@@ -796,6 +923,7 @@ function block_googlemeet_tutorials_insert_series(
         'rrule' => $rrule,
         'google_recurring_id' => '',
         'scope' => $scope,
+        'usegroups' => $usegroups ? 1 : 0,
         'timecreated' => $now,
         'timemodified' => $now,
     ];
@@ -840,6 +968,7 @@ function block_googlemeet_tutorials_insert_series(
             'meeturl' => $instancemap[$idx]['meeturl'] ?? '',
             'status' => 1,
             'scope' => $scope,
+            'usegroups' => $usegroups ? 1 : 0,
             'seriesid' => $seriesid,
             'instanceindex' => $idx,
             'timecreated' => $now,
@@ -861,7 +990,8 @@ function block_googlemeet_tutorials_update_series(
     int $introformat,
     int $timestart,
     int $timeend,
-    int $maxstudents
+    int $maxstudents,
+    int $usegroups = 1
 ): void {
     global $DB;
 
@@ -896,7 +1026,16 @@ function block_googlemeet_tutorials_update_series(
     $tz = block_googlemeet_tutorials_user_timezone($hostuser);
 
     if ($timeschanged && $totalregs === 0) {
-        block_googlemeet_tutorials_rebuild_series_occurrences($series, $title, $intro, $introformat, $timestart, $timeend, $maxstudents);
+        block_googlemeet_tutorials_rebuild_series_occurrences(
+            $series,
+            $title,
+            $intro,
+            $introformat,
+            $timestart,
+            $timeend,
+            $maxstudents,
+            $usegroups
+        );
         return;
     }
 
@@ -905,6 +1044,7 @@ function block_googlemeet_tutorials_update_series(
     $series->intro = $intro;
     $series->introformat = $introformat;
     $series->maxstudents = $maxstudents;
+    $series->usegroups = $usegroups ? 1 : 0;
     $series->timemodified = $now;
     $DB->update_record('block_googlemeet_tut_series', $series);
 
@@ -928,6 +1068,7 @@ function block_googlemeet_tutorials_update_series(
         if ($regcount === 0) {
             $slot->maxstudents = $maxstudents;
         }
+        $slot->usegroups = $usegroups ? 1 : 0;
         $slot->timemodified = $now;
         $DB->update_record('block_googlemeet_tut_slot', $slot);
 
@@ -954,7 +1095,8 @@ function block_googlemeet_tutorials_rebuild_series_occurrences(
     int $introformat,
     int $timestart,
     int $timeend,
-    int $maxstudents
+    int $maxstudents,
+    int $usegroups = 1
 ): void {
     global $DB;
 
@@ -997,6 +1139,7 @@ function block_googlemeet_tutorials_rebuild_series_occurrences(
     $series->timestart = $timestart;
     $series->timeend = $timeend;
     $series->maxstudents = $maxstudents;
+    $series->usegroups = $usegroups ? 1 : 0;
     $series->rrule = $rrule;
     $series->google_recurring_id = '';
     $series->timemodified = time();
@@ -1038,6 +1181,7 @@ function block_googlemeet_tutorials_rebuild_series_occurrences(
             'meeturl' => $instancemap[$idx]['meeturl'] ?? '',
             'status' => 1,
             'scope' => (int) ($series->scope ?? 0),
+            'usegroups' => $usegroups ? 1 : 0,
             'seriesid' => $seriesid,
             'instanceindex' => $idx,
             'timecreated' => $now,

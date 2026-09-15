@@ -71,28 +71,36 @@ final class calendar_api {
         // Create Meet on the host calendar first (no attendees). Combining Meet creation
         // and attendee invites in one insert often fails with Google Calendar API errors.
         $list = self::build_attendee_list($attendees);
-        $created = $service->events->insert('primary', $event, [
-            'conferenceDataVersion' => 1,
-            'sendUpdates' => $list ? 'none' : 'all',
-        ]);
+        $created = self::execute_with_retry(function() use ($service, $event, $list) {
+            return $service->events->insert('primary', $event, [
+                'conferenceDataVersion' => 1,
+                'sendUpdates' => $list ? 'none' : 'all',
+            ]);
+        });
 
         if (!$list) {
             $eventid = $created->getId();
             if (!$created->getHangoutLink()) {
-                return $service->events->get('primary', $eventid);
+                return self::execute_with_retry(function() use ($service, $eventid) {
+                    return $service->events->get('primary', $eventid);
+                });
             }
             return $created;
         }
 
         $patch = new Google_Service_Calendar_Event();
         $patch->setAttendees($list);
-        $updated = $service->events->patch('primary', $created->getId(), $patch, [
-            'conferenceDataVersion' => 0,
-            'sendUpdates' => 'all',
-        ]);
+        $updated = self::execute_with_retry(function() use ($service, $created, $patch) {
+            return $service->events->patch('primary', $created->getId(), $patch, [
+                'conferenceDataVersion' => 0,
+                'sendUpdates' => 'all',
+            ]);
+        });
 
         if (!$updated->getHangoutLink()) {
-            return $service->events->get('primary', $created->getId());
+            return self::execute_with_retry(function() use ($service, $created) {
+                return $service->events->get('primary', $created->getId());
+            });
         }
         return $updated;
     }
@@ -323,14 +331,16 @@ final class calendar_api {
         string $googleeventid,
         string $email,
         string $displayname = ''
-    ): void {
+    ): Google_Service_Calendar_Event {
         \block_googlemeet_tutorials_google_sdk_bootstrap();
         $service = new Google_Service_Calendar($client);
-        $event = $service->events->get('primary', $googleeventid);
+        $event = self::execute_with_retry(function() use ($service, $googleeventid) {
+            return $service->events->get('primary', $googleeventid);
+        });
         $attendees = $event->getAttendees() ?: [];
         foreach ($attendees as $existing) {
             if (strtolower($existing->getEmail()) === strtolower($email)) {
-                return;
+                return $event;
             }
         }
         $att = new Google_Service_Calendar_EventAttendee();
@@ -342,10 +352,13 @@ final class calendar_api {
 
         $patch = new Google_Service_Calendar_Event();
         $patch->setAttendees($attendees);
-        $service->events->patch('primary', $googleeventid, $patch, [
-            'conferenceDataVersion' => 0,
-            'sendUpdates' => 'all',
-        ]);
+        self::execute_with_retry(function() use ($service, $googleeventid, $patch) {
+            return $service->events->patch('primary', $googleeventid, $patch, [
+                'conferenceDataVersion' => 0,
+                'sendUpdates' => 'all',
+            ]);
+        });
+        return $event;
     }
 
     public static function remove_attendee(
@@ -355,7 +368,9 @@ final class calendar_api {
     ): void {
         \block_googlemeet_tutorials_google_sdk_bootstrap();
         $service = new Google_Service_Calendar($client);
-        $event = $service->events->get('primary', $googleeventid);
+        $event = self::execute_with_retry(function() use ($service, $googleeventid) {
+            return $service->events->get('primary', $googleeventid);
+        });
         $attendees = $event->getAttendees() ?: [];
         $filtered = [];
         foreach ($attendees as $existing) {
@@ -365,18 +380,22 @@ final class calendar_api {
         }
         $patch = new Google_Service_Calendar_Event();
         $patch->setAttendees($filtered);
-        $service->events->patch('primary', $googleeventid, $patch, [
-            'conferenceDataVersion' => 0,
-            'sendUpdates' => 'all',
-        ]);
+        self::execute_with_retry(function() use ($service, $googleeventid, $patch) {
+            return $service->events->patch('primary', $googleeventid, $patch, [
+                'conferenceDataVersion' => 0,
+                'sendUpdates' => 'all',
+            ]);
+        });
     }
 
     public static function delete_event(Google_Client $client, string $googleeventid): void {
         \block_googlemeet_tutorials_google_sdk_bootstrap();
         $service = new Google_Service_Calendar($client);
-        $service->events->delete('primary', $googleeventid, [
-            'sendUpdates' => 'all',
-        ]);
+        self::execute_with_retry(function() use ($service, $googleeventid) {
+            return $service->events->delete('primary', $googleeventid, [
+                'sendUpdates' => 'all',
+            ]);
+        });
     }
 
     private static function format_event_datetime(int $timestamp, string $timezone): string {
@@ -388,5 +407,98 @@ final class calendar_api {
         $dt = new \DateTime('@' . $timestamp);
         $dt->setTimezone($dtz);
         return $dt->format('Y-m-d\TH:i:s');
+    }
+
+    /**
+     * Run a Google Calendar API call with short retries on rate-limit responses.
+     *
+     * @param callable $fn
+     * @return mixed
+     */
+    public static function execute_with_retry(callable $fn) {
+        $attempt = 0;
+        $delay = 1;
+        while (true) {
+            try {
+                return $fn();
+            } catch (\Throwable $e) {
+                $attempt++;
+                if ($attempt >= 4 || !self::is_rate_limit_error($e)) {
+                    throw $e;
+                }
+                sleep($delay);
+                $delay *= 2;
+            }
+        }
+    }
+
+    /**
+     * @param \Throwable $e
+     * @return bool
+     */
+    public static function is_rate_limit_error(\Throwable $e): bool {
+        $msg = $e->getMessage();
+        if (stripos($msg, 'rateLimitExceeded') !== false
+                || stripos($msg, 'userRateLimitExceeded') !== false
+                || stripos($msg, 'quotaExceeded') !== false
+                || stripos($msg, 'Rate Limit Exceeded') !== false) {
+            return true;
+        }
+        if (method_exists($e, 'getCode') && (int) $e->getCode() === 403) {
+            return stripos($msg, 'rate') !== false || stripos($msg, 'quota') !== false;
+        }
+        return false;
+    }
+
+    /**
+     * Fetch a calendar event by id.
+     *
+     * @param Google_Client $client
+     * @param string $googleeventid
+     * @return Google_Service_Calendar_Event
+     */
+    public static function get_event(Google_Client $client, string $googleeventid): Google_Service_Calendar_Event {
+        \block_googlemeet_tutorials_google_sdk_bootstrap();
+        $service = new Google_Service_Calendar($client);
+        return self::execute_with_retry(function() use ($service, $googleeventid) {
+            return $service->events->get('primary', $googleeventid);
+        });
+    }
+
+    /**
+     * Extract unix start/end and Meet URL from a Google event.
+     *
+     * @param Google_Service_Calendar_Event $event
+     * @param string $fallbacktimezone
+     * @return array{timestart:int,timeend:int,meeturl:string}|null
+     */
+    public static function event_time_data(Google_Service_Calendar_Event $event, string $fallbacktimezone): ?array {
+        $start = $event->getStart();
+        $end = $event->getEnd();
+        if (!$start || !$end) {
+            return null;
+        }
+        $startraw = $start->getDateTime() ?: $start->getDate();
+        $endraw = $end->getDateTime() ?: $end->getDate();
+        if (!$startraw || !$endraw) {
+            return null;
+        }
+        $tzname = $start->getTimeZone() ?: $fallbacktimezone;
+        try {
+            $tz = new \DateTimeZone($tzname);
+        } catch (\Throwable $e) {
+            $tz = new \DateTimeZone('UTC');
+        }
+        try {
+            $startdt = new \DateTimeImmutable($startraw, $tz);
+            $enddt = new \DateTimeImmutable($endraw, $tz);
+        } catch (\Throwable $e) {
+            return null;
+        }
+        return [
+            'timestart' => $startdt->getTimestamp(),
+            'timeend' => $enddt->getTimestamp(),
+            'meeturl' => (string) ($event->getHangoutLink() ?: ''),
+        ];
     }
 }

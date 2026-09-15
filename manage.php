@@ -15,6 +15,20 @@ $PAGE->set_context($context);
 $PAGE->set_heading($course->fullname);
 $PAGE->set_title(get_string('managemyslots', 'block_googlemeet_tutorials'));
 
+if (optional_param('syncgoogle', 0, PARAM_BOOL) && confirm_sesskey()) {
+    try {
+        $updated = block_googlemeet_tutorials_sync_host_slots_from_google($courseid, (int) $USER->id);
+        redirect(
+            $PAGE->url,
+            get_string('syncfromgoogle_success', 'block_googlemeet_tutorials', $updated),
+            null,
+            \core\output\notification::NOTIFY_SUCCESS
+        );
+    } catch (moodle_exception $e) {
+        redirect($PAGE->url, $e->getMessage(), null, \core\output\notification::NOTIFY_ERROR);
+    }
+}
+
 echo $OUTPUT->header();
 
 if (!block_googlemeet_tutorials_get_calendar_client((int) $USER->id)) {
@@ -26,7 +40,21 @@ if (!block_googlemeet_tutorials_get_calendar_client((int) $USER->id)) {
 }
 
 $add = new moodle_url('/blocks/googlemeet_tutorials/editslot.php', ['courseid' => $courseid]);
-echo html_writer::link($add, get_string('addslot', 'block_googlemeet_tutorials'), ['class' => 'btn btn-primary mb-3']);
+$sync = new moodle_url('/blocks/googlemeet_tutorials/manage.php', [
+    'courseid' => $courseid,
+    'syncgoogle' => 1,
+    'sesskey' => sesskey(),
+]);
+echo html_writer::div(
+    html_writer::link($add, get_string('addslot', 'block_googlemeet_tutorials'), ['class' => 'btn btn-primary mb-3']) .
+    ' ' .
+    html_writer::link($sync, get_string('syncfromgoogle', 'block_googlemeet_tutorials'), [
+        'class' => 'btn btn-secondary mb-3',
+        'title' => get_string('syncfromgoogle_help', 'block_googlemeet_tutorials'),
+    ]),
+    'mb-2'
+);
+echo html_writer::div(get_string('syncfromgoogle_help', 'block_googlemeet_tutorials'), 'text-muted small mb-3');
 
 $ismanager = has_capability('block/googlemeet_tutorials:viewallslots', $context);
 
@@ -81,6 +109,7 @@ $table->head = [
     get_string('registered', 'block_googlemeet_tutorials'),
     get_string('recurrence', 'block_googlemeet_tutorials'),
     get_string('scope', 'block_googlemeet_tutorials'),
+    get_string('usegroups', 'block_googlemeet_tutorials'),
     '',
 ];
 foreach ($slots as $s) {
@@ -100,6 +129,10 @@ foreach ($slots as $s) {
         ? get_string('scopelabel_sitewide', 'block_googlemeet_tutorials')
         : get_string('scopelabel_course', 'block_googlemeet_tutorials');
 
+    $groupscell = (!isset($s->usegroups) || (int) $s->usegroups === 1)
+        ? get_string('yes')
+        : get_string('no');
+
     $table->data[] = [
         format_string($s->title),
         userdate($s->timestart),
@@ -108,6 +141,7 @@ foreach ($slots as $s) {
         $regs,
         $recurrencecell,
         $scopecell,
+        $groupscell,
         $actions,
     ];
 }

@@ -76,6 +76,7 @@ if ($slot) {
         'timestart' => $slot->timestart,
         'timeend' => $slot->timeend,
         'maxstudents' => $slot->maxstudents,
+        'usegroups' => (int) ($slot->usegroups ?? 1),
         'editscope' => 'slot',
     ];
     if ($series) {
@@ -85,6 +86,7 @@ if ($slot) {
         $formdata['timestart'] = $series->timestart;
         $formdata['timeend'] = $series->timeend;
         $formdata['maxstudents'] = $series->maxstudents;
+        $formdata['usegroups'] = (int) ($series->usegroups ?? $slot->usegroups ?? 1);
     }
     $form->set_data((object) $formdata);
 } else {
@@ -117,7 +119,8 @@ if ($data = $form->get_data()) {
                     (int) $data->introformat,
                     (int) $data->timestart,
                     (int) $data->timeend,
-                    (int) $data->maxstudents
+                    (int) $data->maxstudents,
+                    (int) ($data->usegroups ?? 1)
                 );
                 $message = get_string('successseriesupdated', 'block_googlemeet_tutorials');
             } else {
@@ -128,7 +131,8 @@ if ($data = $form->get_data()) {
                     (int) $data->introformat,
                     (int) $data->timestart,
                     (int) $data->timeend,
-                    (int) $data->maxstudents
+                    (int) $data->maxstudents,
+                    (int) ($data->usegroups ?? 1)
                 );
                 $message = get_string('successcreated', 'block_googlemeet_tutorials');
             }
@@ -147,7 +151,8 @@ if ($data = $form->get_data()) {
                 (int) $data->timeend,
                 (int) $data->maxstudents,
                 $config,
-                (int) ($data->scope ?? 0)
+                (int) ($data->scope ?? 0),
+                (int) ($data->usegroups ?? 1)
             );
             $message = get_string('successseriescreated', 'block_googlemeet_tutorials', $count);
         } else {
@@ -160,7 +165,8 @@ if ($data = $form->get_data()) {
                 (int) $data->timestart,
                 (int) $data->timeend,
                 (int) $data->maxstudents,
-                (int) ($data->scope ?? 0)
+                (int) ($data->scope ?? 0),
+                (int) ($data->usegroups ?? 1)
             );
             $message = get_string('successcreated', 'block_googlemeet_tutorials');
         }

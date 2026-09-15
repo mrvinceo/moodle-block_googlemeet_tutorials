@@ -147,5 +147,80 @@ function xmldb_block_googlemeet_tutorials_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2026091400, 'googlemeet_tutorials');
     }
 
+    if ($oldversion < 2026091500) {
+        $table = new xmldb_table('block_googlemeet_tut_hostpref');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('usegroups', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '1');
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_index('courseid-userid-uix', XMLDB_INDEX_UNIQUE, ['courseid', 'userid']);
+
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        upgrade_block_savepoint(true, 2026091500, 'googlemeet_tutorials');
+    }
+
+    if ($oldversion < 2026091501) {
+        $slottable = new xmldb_table('block_googlemeet_tut_slot');
+        $field = new xmldb_field('usegroups', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '1', 'scope');
+        if (!$dbman->field_exists($slottable, $field)) {
+            $dbman->add_field($slottable, $field);
+        }
+
+        $seriestable = new xmldb_table('block_googlemeet_tut_series');
+        $field = new xmldb_field('usegroups', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '1', 'scope');
+        if (!$dbman->field_exists($seriestable, $field)) {
+            $dbman->add_field($seriestable, $field);
+        }
+
+        // Migrate any host-level preferences onto existing slots/series for that course+host.
+        $preftable = new xmldb_table('block_googlemeet_tut_hostpref');
+        if ($dbman->table_exists($preftable)) {
+            $prefs = $DB->get_records('block_googlemeet_tut_hostpref');
+            foreach ($prefs as $pref) {
+                $value = (int) $pref->usegroups === 1 ? 1 : 0;
+                $DB->set_field_select(
+                    'block_googlemeet_tut_slot',
+                    'usegroups',
+                    $value,
+                    'courseid = ? AND userid = ?',
+                    [(int) $pref->courseid, (int) $pref->userid]
+                );
+                $DB->set_field_select(
+                    'block_googlemeet_tut_series',
+                    'usegroups',
+                    $value,
+                    'courseid = ? AND userid = ?',
+                    [(int) $pref->courseid, (int) $pref->userid]
+                );
+                // Site-wide slots owned by this host should also inherit the preference
+                // from the course where it was set (view context). Apply to all their slots.
+                if ($value === 0) {
+                    $DB->set_field_select(
+                        'block_googlemeet_tut_slot',
+                        'usegroups',
+                        0,
+                        'userid = ? AND scope = 1',
+                        [(int) $pref->userid]
+                    );
+                    $DB->set_field_select(
+                        'block_googlemeet_tut_series',
+                        'usegroups',
+                        0,
+                        'userid = ? AND scope = 1',
+                        [(int) $pref->userid]
+                    );
+                }
+            }
+            $dbman->drop_table($preftable);
+        }
+
+        upgrade_block_savepoint(true, 2026091501, 'googlemeet_tutorials');
+    }
+
     return true;
 }

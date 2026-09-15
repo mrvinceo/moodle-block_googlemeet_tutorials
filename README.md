@@ -11,6 +11,7 @@ Course block for booking capacity-limited Google Meet tutorial slots. Tutors cre
 
 - Tutor-managed tutorial slots with capacity limits
 - Student registration / unregistration
+- Optional **Use groups** setting per slot/series (default on) to limit visibility to shared group members, or open a session to all enrolled students
 - Optional recurrence (presets or custom RRULE-style options)
 - Course-scoped or site-wide slots (where the host has permission)
 - Google Calendar Meet creation and attendee updates on register/unregister
@@ -61,6 +62,19 @@ The plugin stores tutorial slots, series metadata, student registrations, and Go
 - Source: https://github.com/mrvinceo/moodle-block_googlemeet_tutorials
 
 ## Changelog
+
+### 1.0.3
+
+- Sync slot times/Meet URLs from Google Calendar (manage page button; also on student register when linked)
+- Retry Google Calendar API calls on rate-limit responses and show a clear error instead of a developer dump
+
+### 1.0.2
+
+- Moved **Use groups** to a per-slot / per-series setting so tutors can mix open and group-limited sessions
+
+### 1.0.1
+
+- Added **Use groups** setting (default on)
 
 ### 1.0.0
 

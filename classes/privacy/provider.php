@@ -31,12 +31,14 @@ class provider implements
             'timestart' => 'privacy:metadata:slot:timestart',
             'timeend' => 'privacy:metadata:slot:timeend',
             'scope' => 'privacy:metadata:slot:scope',
+            'usegroups' => 'privacy:metadata:slot:usegroups',
         ], 'privacy:metadata:slots');
 
         $collection->add_database_table('block_googlemeet_tut_series', [
             'userid' => 'privacy:metadata:series:userid',
             'title' => 'privacy:metadata:series:title',
             'scope' => 'privacy:metadata:series:scope',
+            'usegroups' => 'privacy:metadata:series:usegroups',
         ], 'privacy:metadata:series');
 
         $collection->add_database_table('block_googlemeet_tut_reg', [
@@ -142,6 +144,7 @@ class provider implements
                         'timeend' => $s->timeend,
                         'maxstudents' => $s->maxstudents,
                         'scope' => (int) ($s->scope ?? 0),
+                        'usegroups' => (int) ($s->usegroups ?? 1),
                     ]
                 );
             }
@@ -248,7 +251,11 @@ class provider implements
                 UNION
                 SELECT r2.userid FROM {block_googlemeet_tut_reg} r2
                  WHERE r2.registrationcourseid = :c3";
-        $userlist->add_from_sql('userid', $sql, ['c1' => $courseid, 'c2' => $courseid, 'c3' => $courseid]);
+        $userlist->add_from_sql('userid', $sql, [
+            'c1' => $courseid,
+            'c2' => $courseid,
+            'c3' => $courseid,
+        ]);
     }
 
     /**

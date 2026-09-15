@@ -128,6 +128,11 @@ class block_googlemeet_tutorials_slot_form extends moodleform {
         $mform->addRule('maxstudents', null, 'required', null, 'client');
         $mform->addRule('maxstudents', null, 'numeric', null, 'client');
 
+        $mform->addElement('advcheckbox', 'usegroups', get_string('usegroups', 'block_googlemeet_tutorials'),
+            get_string('usegroups_desc', 'block_googlemeet_tutorials'));
+        $mform->setType('usegroups', PARAM_INT);
+        $mform->setDefault('usegroups', 1);
+
         if (!empty($this->_customdata['lockcapacity'])) {
             $mform->freeze('maxstudents');
         }

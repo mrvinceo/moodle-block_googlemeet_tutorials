@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="blocks/googlemeet_tutorials/db" VERSION="20260914" COMMENT="XMLDB for block_googlemeet_tutorials"
+<XMLDB PATH="blocks/googlemeet_tutorials/db" VERSION="202609151" COMMENT="XMLDB for block_googlemeet_tutorials"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -19,6 +19,7 @@
         <FIELD NAME="meeturl" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="status" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="1 active 0 cancelled"/>
         <FIELD NAME="scope" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="0 course-scoped 1 site-wide"/>
+        <FIELD NAME="usegroups" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="1 limit to shared groups, 0 all enrolled students"/>
         <FIELD NAME="seriesid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="FK to block_googlemeet_tut_series when part of a recurring series"/>
         <FIELD NAME="instanceindex" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="0-based position within series"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
@@ -54,6 +55,7 @@
         <FIELD NAME="rrule" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="google_recurring_id" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="scope" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="0 course-scoped 1 site-wide"/>
+        <FIELD NAME="usegroups" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="1 limit to shared groups, 0 all enrolled students"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
       </FIELDS>
