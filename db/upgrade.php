@@ -222,5 +222,24 @@ function xmldb_block_googlemeet_tutorials_upgrade($oldversion) {
         upgrade_block_savepoint(true, 2026091501, 'googlemeet_tutorials');
     }
 
+    if ($oldversion < 2026091503) {
+        // Rename abbreviated tables to frankenstyle-prefixed names required by plugin validation.
+        $renames = [
+            'block_googlemeet_tut_slot' => 'block_googlemeet_tutorials_slot',
+            'block_googlemeet_tut_series' => 'block_googlemeet_tutorials_series',
+            'block_googlemeet_tut_reg' => 'block_googlemeet_tutorials_reg',
+            'block_googlemeet_tut_token' => 'block_googlemeet_tutorials_token',
+        ];
+        foreach ($renames as $oldname => $newname) {
+            $oldtable = new xmldb_table($oldname);
+            $newtable = new xmldb_table($newname);
+            if ($dbman->table_exists($oldtable) && !$dbman->table_exists($newtable)) {
+                $dbman->rename_table($oldtable, $newname);
+            }
+        }
+
+        upgrade_block_savepoint(true, 2026091503, 'googlemeet_tutorials');
+    }
+
     return true;
 }

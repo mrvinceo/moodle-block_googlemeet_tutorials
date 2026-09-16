@@ -25,7 +25,7 @@ class provider implements
      * @return collection
      */
     public static function get_metadata(collection $collection): collection {
-        $collection->add_database_table('block_googlemeet_tut_slot', [
+        $collection->add_database_table('block_googlemeet_tutorials_slot', [
             'userid' => 'privacy:metadata:slot:userid',
             'title' => 'privacy:metadata:slot:title',
             'timestart' => 'privacy:metadata:slot:timestart',
@@ -34,20 +34,20 @@ class provider implements
             'usegroups' => 'privacy:metadata:slot:usegroups',
         ], 'privacy:metadata:slots');
 
-        $collection->add_database_table('block_googlemeet_tut_series', [
+        $collection->add_database_table('block_googlemeet_tutorials_series', [
             'userid' => 'privacy:metadata:series:userid',
             'title' => 'privacy:metadata:series:title',
             'scope' => 'privacy:metadata:series:scope',
             'usegroups' => 'privacy:metadata:series:usegroups',
         ], 'privacy:metadata:series');
 
-        $collection->add_database_table('block_googlemeet_tut_reg', [
+        $collection->add_database_table('block_googlemeet_tutorials_reg', [
             'userid' => 'privacy:metadata:reg:userid',
             'slotid' => 'privacy:metadata:reg:slotid',
             'registrationcourseid' => 'privacy:metadata:reg:registrationcourseid',
         ], 'privacy:metadata:regs');
 
-        $collection->add_database_table('block_googlemeet_tut_token', [
+        $collection->add_database_table('block_googlemeet_tutorials_token', [
             'user_id' => 'privacy:metadata:token:userid',
             'user_email' => 'privacy:metadata:token:email',
         ], 'privacy:metadata:tokens');
@@ -75,16 +75,16 @@ class provider implements
                  WHERE ctx.contextlevel = :courselevel
                    AND (
                         EXISTS (
-                            SELECT 1 FROM {block_googlemeet_tut_slot} s
+                            SELECT 1 FROM {block_googlemeet_tutorials_slot} s
                              WHERE s.courseid = c.id AND s.userid = :hostid
                         )
                         OR EXISTS (
-                            SELECT 1 FROM {block_googlemeet_tut_reg} r
+                            SELECT 1 FROM {block_googlemeet_tutorials_reg} r
                              WHERE r.userid = :regid
                                AND (
                                     r.registrationcourseid = c.id
                                     OR (r.registrationcourseid = 0 AND EXISTS (
-                                        SELECT 1 FROM {block_googlemeet_tut_slot} s2
+                                        SELECT 1 FROM {block_googlemeet_tutorials_slot} s2
                                          WHERE s2.id = r.slotid AND s2.courseid = c.id
                                     ))
                                )
@@ -98,7 +98,7 @@ class provider implements
         ];
         $contextlist->add_from_sql($sql, $params);
 
-        if ($DB->record_exists('block_googlemeet_tut_token', ['user_id' => $userid])) {
+        if ($DB->record_exists('block_googlemeet_tutorials_token', ['user_id' => $userid])) {
             $contextlist->add_system_context();
         }
 
@@ -114,7 +114,7 @@ class provider implements
         $userid = $contextlist->get_user()->id;
         foreach ($contextlist->get_contexts() as $context) {
             if ($context->contextlevel == CONTEXT_SYSTEM) {
-                $token = $DB->get_record('block_googlemeet_tut_token', ['user_id' => $userid]);
+                $token = $DB->get_record('block_googlemeet_tutorials_token', ['user_id' => $userid]);
                 if ($token) {
                     writer::with_context($context)->export_data(
                         [get_string('privacy:path:tokens', 'block_googlemeet_tutorials')],
@@ -134,7 +134,7 @@ class provider implements
             $courseid = $context->instanceid;
 
             // Hosted slots (origin course = this course).
-            $slots = $DB->get_records_select('block_googlemeet_tut_slot', 'courseid = ? AND userid = ?', [$courseid, $userid]);
+            $slots = $DB->get_records_select('block_googlemeet_tutorials_slot', 'courseid = ? AND userid = ?', [$courseid, $userid]);
             foreach ($slots as $s) {
                 writer::with_context($context)->export_data(
                     [get_string('privacy:path:slots', 'block_googlemeet_tutorials'), $s->id],
@@ -151,8 +151,8 @@ class provider implements
 
             // Registrations where registrationcourseid = this course (or legacy: slot's origin course).
             $sql = "SELECT r.*
-                      FROM {block_googlemeet_tut_reg} r
-                      JOIN {block_googlemeet_tut_slot} s ON s.id = r.slotid
+                      FROM {block_googlemeet_tutorials_reg} r
+                      JOIN {block_googlemeet_tutorials_slot} s ON s.id = r.slotid
                      WHERE r.userid = ?
                        AND (
                             r.registrationcourseid = ?
@@ -178,21 +178,21 @@ class provider implements
     public static function delete_data_for_all_users_in_context(\context $context) {
         global $DB;
         if ($context->contextlevel == CONTEXT_SYSTEM) {
-            $DB->delete_records('block_googlemeet_tut_token');
+            $DB->delete_records('block_googlemeet_tutorials_token');
             return;
         }
         if ($context->contextlevel != CONTEXT_COURSE) {
             return;
         }
         $courseid = $context->instanceid;
-        $slotids = array_keys($DB->get_records('block_googlemeet_tut_slot', ['courseid' => $courseid], 'id'));
+        $slotids = array_keys($DB->get_records('block_googlemeet_tutorials_slot', ['courseid' => $courseid], 'id'));
         if ($slotids) {
             list($insql, $params) = $DB->get_in_or_equal($slotids);
-            $DB->delete_records_select('block_googlemeet_tut_reg', "slotid $insql", $params);
-            $DB->delete_records('block_googlemeet_tut_slot', ['courseid' => $courseid]);
+            $DB->delete_records_select('block_googlemeet_tutorials_reg', "slotid $insql", $params);
+            $DB->delete_records('block_googlemeet_tutorials_slot', ['courseid' => $courseid]);
         }
         // Also delete registrations recorded as coming from this course (site-wide slots).
-        $DB->delete_records('block_googlemeet_tut_reg', ['registrationcourseid' => $courseid]);
+        $DB->delete_records('block_googlemeet_tutorials_reg', ['registrationcourseid' => $courseid]);
     }
 
     /**
@@ -203,7 +203,7 @@ class provider implements
         $userid = $contextlist->get_user()->id;
         foreach ($contextlist->get_contexts() as $context) {
             if ($context->contextlevel == CONTEXT_SYSTEM) {
-                $DB->delete_records('block_googlemeet_tut_token', ['user_id' => $userid]);
+                $DB->delete_records('block_googlemeet_tutorials_token', ['user_id' => $userid]);
                 continue;
             }
             if ($context->contextlevel != CONTEXT_COURSE) {
@@ -213,19 +213,19 @@ class provider implements
 
             // Delete registrations by this user originating from this course.
             $DB->delete_records_select(
-                'block_googlemeet_tut_reg',
+                'block_googlemeet_tutorials_reg',
                 'userid = :u AND (registrationcourseid = :c OR (registrationcourseid = 0 AND slotid IN (
-                    SELECT id FROM {block_googlemeet_tut_slot} WHERE courseid = :c2
+                    SELECT id FROM {block_googlemeet_tutorials_slot} WHERE courseid = :c2
                 )))',
                 ['u' => $userid, 'c' => $courseid, 'c2' => $courseid]
             );
 
             // Delete hosted slots in this course (and their registrations).
-            $hostslots = $DB->get_records('block_googlemeet_tut_slot', ['courseid' => $courseid, 'userid' => $userid], 'id');
+            $hostslots = $DB->get_records('block_googlemeet_tutorials_slot', ['courseid' => $courseid, 'userid' => $userid], 'id');
             foreach ($hostslots as $h) {
-                $DB->delete_records('block_googlemeet_tut_reg', ['slotid' => $h->id]);
+                $DB->delete_records('block_googlemeet_tutorials_reg', ['slotid' => $h->id]);
             }
-            $DB->delete_records('block_googlemeet_tut_slot', ['courseid' => $courseid, 'userid' => $userid]);
+            $DB->delete_records('block_googlemeet_tutorials_slot', ['courseid' => $courseid, 'userid' => $userid]);
         }
     }
 
@@ -235,7 +235,7 @@ class provider implements
     public static function get_users_in_context(userlist $userlist) {
         $context = $userlist->get_context();
         if ($context->contextlevel == CONTEXT_SYSTEM) {
-            $sql = "SELECT t.user_id AS userid FROM {block_googlemeet_tut_token} t";
+            $sql = "SELECT t.user_id AS userid FROM {block_googlemeet_tutorials_token} t";
             $userlist->add_from_sql('userid', $sql, []);
             return;
         }
@@ -243,13 +243,13 @@ class provider implements
             return;
         }
         $courseid = $context->instanceid;
-        $sql = "SELECT s.userid AS userid FROM {block_googlemeet_tut_slot} s WHERE s.courseid = :c1
+        $sql = "SELECT s.userid AS userid FROM {block_googlemeet_tutorials_slot} s WHERE s.courseid = :c1
                 UNION
-                SELECT r.userid FROM {block_googlemeet_tut_reg} r
-                  JOIN {block_googlemeet_tut_slot} s2 ON s2.id = r.slotid
+                SELECT r.userid FROM {block_googlemeet_tutorials_reg} r
+                  JOIN {block_googlemeet_tutorials_slot} s2 ON s2.id = r.slotid
                  WHERE s2.courseid = :c2
                 UNION
-                SELECT r2.userid FROM {block_googlemeet_tut_reg} r2
+                SELECT r2.userid FROM {block_googlemeet_tutorials_reg} r2
                  WHERE r2.registrationcourseid = :c3";
         $userlist->add_from_sql('userid', $sql, [
             'c1' => $courseid,
@@ -271,7 +271,7 @@ class provider implements
         list($insql, $params) = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
 
         if ($context->contextlevel == CONTEXT_SYSTEM) {
-            $DB->delete_records_select('block_googlemeet_tut_token', "user_id $insql", $params);
+            $DB->delete_records_select('block_googlemeet_tutorials_token', "user_id $insql", $params);
             return;
         }
         if ($context->contextlevel != CONTEXT_COURSE) {
@@ -280,21 +280,21 @@ class provider implements
 
         $params['courseid'] = $context->instanceid;
         $DB->delete_records_select(
-            'block_googlemeet_tut_reg',
+            'block_googlemeet_tutorials_reg',
             "userid $insql AND (registrationcourseid = :courseid OR (registrationcourseid = 0 AND slotid IN (
-                SELECT id FROM {block_googlemeet_tut_slot} WHERE courseid = :courseid2
+                SELECT id FROM {block_googlemeet_tutorials_slot} WHERE courseid = :courseid2
             )))",
             $params + ['courseid2' => $context->instanceid]
         );
 
         $slots = $DB->get_records_select(
-            'block_googlemeet_tut_slot',
+            'block_googlemeet_tutorials_slot',
             "courseid = :courseid AND userid $insql",
             $params
         );
         foreach ($slots as $slot) {
-            $DB->delete_records('block_googlemeet_tut_reg', ['slotid' => $slot->id]);
-            $DB->delete_records('block_googlemeet_tut_slot', ['id' => $slot->id]);
+            $DB->delete_records('block_googlemeet_tutorials_reg', ['slotid' => $slot->id]);
+            $DB->delete_records('block_googlemeet_tutorials_slot', ['id' => $slot->id]);
         }
     }
 }

@@ -58,7 +58,7 @@ function block_googlemeet_tutorials_persist_google_token(int $userid, \Google_Cl
     if ($newtoken === false || $newtoken === 'null') {
         return;
     }
-    $rec = $DB->get_record('block_googlemeet_tut_token', ['user_id' => $userid]);
+    $rec = $DB->get_record('block_googlemeet_tutorials_token', ['user_id' => $userid]);
     $row = (object) [
         'user_id' => $userid,
         'token' => $newtoken,
@@ -69,9 +69,9 @@ function block_googlemeet_tutorials_persist_google_token(int $userid, \Google_Cl
         if (!empty($rec->user_email)) {
             $row->user_email = $rec->user_email;
         }
-        $DB->update_record('block_googlemeet_tut_token', $row);
+        $DB->update_record('block_googlemeet_tutorials_token', $row);
     } else {
-        $DB->insert_record('block_googlemeet_tut_token', $row);
+        $DB->insert_record('block_googlemeet_tutorials_token', $row);
     }
 }
 
@@ -92,7 +92,7 @@ function block_googlemeet_tutorials_get_calendar_client(int $userid): ?\Google_C
         return null;
     }
 
-    $userrow = $DB->get_record('block_googlemeet_tut_token', ['user_id' => $userid]);
+    $userrow = $DB->get_record('block_googlemeet_tutorials_token', ['user_id' => $userid]);
     if (!$userrow || empty($userrow->token) || $userrow->token === 'null') {
         return null;
     }
@@ -195,12 +195,12 @@ function block_googlemeet_tutorials_users_share_course_group(int $courseid, int 
 
 function block_googlemeet_tutorials_count_registrations(int $slotid): int {
     global $DB;
-    return $DB->count_records('block_googlemeet_tut_reg', ['slotid' => $slotid]);
+    return $DB->count_records('block_googlemeet_tutorials_reg', ['slotid' => $slotid]);
 }
 
 function block_googlemeet_tutorials_user_is_registered(int $slotid, int $userid): bool {
     global $DB;
-    return $DB->record_exists('block_googlemeet_tut_reg', ['slotid' => $slotid, 'userid' => $userid]);
+    return $DB->record_exists('block_googlemeet_tutorials_reg', ['slotid' => $slotid, 'userid' => $userid]);
 }
 
 /**
@@ -284,7 +284,7 @@ function block_googlemeet_tutorials_fetch_course_slots(int $courseid, int $since
 
     // Course-scoped slots for this course.
     $course = $DB->get_records_select(
-        'block_googlemeet_tut_slot',
+        'block_googlemeet_tutorials_slot',
         'courseid = :c AND scope = 0 AND status = 1 AND timestart >= :t',
         ['c' => $courseid, 't' => $since],
         'timestart ASC'
@@ -292,7 +292,7 @@ function block_googlemeet_tutorials_fetch_course_slots(int $courseid, int $since
 
     // Site-wide slots: get all active future ones then filter by host capability.
     $sitewide = $DB->get_records_select(
-        'block_googlemeet_tut_slot',
+        'block_googlemeet_tutorials_slot',
         'scope = 1 AND status = 1 AND timestart >= :t',
         ['t' => $since],
         'timestart ASC'
@@ -417,7 +417,7 @@ function block_googlemeet_tutorials_register_user(
                 $slot->googleeventid = $ge->getId();
                 $slot->meeturl = $ge->getHangoutLink() ?: '';
                 $slot->timemodified = time();
-                $DB->update_record('block_googlemeet_tut_slot', $slot);
+                $DB->update_record('block_googlemeet_tutorials_slot', $slot);
             }
         }
     } catch (\Throwable $e) {
@@ -439,7 +439,7 @@ function block_googlemeet_tutorials_register_user(
         'registrationcourseid' => $viewcourseid,
         'timecreated' => time(),
     ];
-    $DB->insert_record('block_googlemeet_tut_reg', $reg);
+    $DB->insert_record('block_googlemeet_tutorials_reg', $reg);
 }
 
 /**
@@ -477,7 +477,7 @@ function block_googlemeet_tutorials_apply_google_event_to_slot(
     }
     if ($changed) {
         $slot->timemodified = time();
-        $DB->update_record('block_googlemeet_tut_slot', $slot);
+        $DB->update_record('block_googlemeet_tutorials_slot', $slot);
     }
     return $changed;
 }
@@ -520,7 +520,7 @@ function block_googlemeet_tutorials_sync_host_slots_from_google(int $courseid, i
     $tz = block_googlemeet_tutorials_user_timezone($hostuser);
 
     $slots = $DB->get_records_select(
-        'block_googlemeet_tut_slot',
+        'block_googlemeet_tutorials_slot',
         'userid = :u AND status = 1 AND googleeventid <> :empty
          AND (courseid = :c OR scope = 1)',
         ['u' => $hostuserid, 'c' => $courseid, 'empty' => ''],
@@ -575,14 +575,14 @@ function block_googlemeet_tutorials_unregister_user(\stdClass $slot, \stdClass $
                 $slot->googleeventid = '';
                 $slot->meeturl = '';
                 $slot->timemodified = time();
-                $DB->update_record('block_googlemeet_tut_slot', $slot);
+                $DB->update_record('block_googlemeet_tutorials_slot', $slot);
             }
         } catch (\Throwable $e) {
             throw new moodle_exception('registrationfailed', 'block_googlemeet_tutorials');
         }
     }
 
-    $DB->delete_records('block_googlemeet_tut_reg', ['slotid' => $slot->id, 'userid' => $studentuser->id]);
+    $DB->delete_records('block_googlemeet_tutorials_reg', ['slotid' => $slot->id, 'userid' => $studentuser->id]);
 }
 
 function block_googlemeet_tutorials_delete_slot(\stdClass $slot): void {
@@ -599,11 +599,11 @@ function block_googlemeet_tutorials_delete_slot(\stdClass $slot): void {
             }
         }
     }
-    $DB->delete_records('block_googlemeet_tut_reg', ['slotid' => $slot->id]);
+    $DB->delete_records('block_googlemeet_tutorials_reg', ['slotid' => $slot->id]);
     $seriesid = !empty($slot->seriesid) ? (int) $slot->seriesid : 0;
-    $DB->delete_records('block_googlemeet_tut_slot', ['id' => $slot->id]);
-    if ($seriesid && !$DB->record_exists('block_googlemeet_tut_slot', ['seriesid' => $seriesid])) {
-        $DB->delete_records('block_googlemeet_tut_series', ['id' => $seriesid]);
+    $DB->delete_records('block_googlemeet_tutorials_slot', ['id' => $slot->id]);
+    if ($seriesid && !$DB->record_exists('block_googlemeet_tutorials_slot', ['seriesid' => $seriesid])) {
+        $DB->delete_records('block_googlemeet_tutorials_series', ['id' => $seriesid]);
     }
 }
 
@@ -671,7 +671,7 @@ function block_googlemeet_tutorials_insert_slot(
         $row->meeturl = $ge->getHangoutLink() ?: '';
     }
 
-    return (int) $DB->insert_record('block_googlemeet_tut_slot', $row);
+    return (int) $DB->insert_record('block_googlemeet_tutorials_slot', $row);
 }
 
 function block_googlemeet_tutorials_update_slot(
@@ -776,7 +776,7 @@ function block_googlemeet_tutorials_update_slot(
         block_googlemeet_tutorials_persist_google_token($hostuserid, $client);
     }
 
-    $DB->update_record('block_googlemeet_tut_slot', $old);
+    $DB->update_record('block_googlemeet_tutorials_slot', $old);
 }
 
 /**
@@ -787,7 +787,7 @@ function block_googlemeet_tutorials_update_slot(
  */
 function block_googlemeet_tutorials_get_series_slots(int $seriesid): array {
     global $DB;
-    return $DB->get_records('block_googlemeet_tut_slot', ['seriesid' => $seriesid], 'instanceindex ASC');
+    return $DB->get_records('block_googlemeet_tutorials_slot', ['seriesid' => $seriesid], 'instanceindex ASC');
 }
 
 /**
@@ -927,13 +927,13 @@ function block_googlemeet_tutorials_insert_series(
         'timecreated' => $now,
         'timemodified' => $now,
     ];
-    $seriesid = (int) $DB->insert_record('block_googlemeet_tut_series', $series);
+    $seriesid = (int) $DB->insert_record('block_googlemeet_tutorials_series', $series);
 
     $instancemap = [];
     if ($maxstudents > 1) {
         $client = block_googlemeet_tutorials_get_calendar_client($hostuserid);
         if (!$client) {
-            $DB->delete_records('block_googlemeet_tut_series', ['id' => $seriesid]);
+            $DB->delete_records('block_googlemeet_tutorials_series', ['id' => $seriesid]);
             throw new moodle_exception('googlenotconnected', 'block_googlemeet_tutorials');
         }
         $ge = calendar_api::create_recurring_meet_event(
@@ -948,7 +948,7 @@ function block_googlemeet_tutorials_insert_series(
         block_googlemeet_tutorials_persist_google_token($hostuserid, $client);
         $series->id = $seriesid;
         $series->google_recurring_id = $ge->getId();
-        $DB->update_record('block_googlemeet_tut_series', $series);
+        $DB->update_record('block_googlemeet_tutorials_series', $series);
 
         $instances = calendar_api::list_instances($client, $ge->getId());
         $instancemap = block_googlemeet_tutorials_map_instances_to_occurrences($instances, $occurrences);
@@ -974,7 +974,7 @@ function block_googlemeet_tutorials_insert_series(
             'timecreated' => $now,
             'timemodified' => $now,
         ];
-        $DB->insert_record('block_googlemeet_tut_slot', $row);
+        $DB->insert_record('block_googlemeet_tutorials_slot', $row);
     }
 
     return $seriesid;
@@ -1046,7 +1046,7 @@ function block_googlemeet_tutorials_update_series(
     $series->maxstudents = $maxstudents;
     $series->usegroups = $usegroups ? 1 : 0;
     $series->timemodified = $now;
-    $DB->update_record('block_googlemeet_tut_series', $series);
+    $DB->update_record('block_googlemeet_tutorials_series', $series);
 
     $client = block_googlemeet_tutorials_get_calendar_client($hostuserid);
     if ($client && !empty($series->google_recurring_id)) {
@@ -1070,7 +1070,7 @@ function block_googlemeet_tutorials_update_series(
         }
         $slot->usegroups = $usegroups ? 1 : 0;
         $slot->timemodified = $now;
-        $DB->update_record('block_googlemeet_tut_slot', $slot);
+        $DB->update_record('block_googlemeet_tutorials_slot', $slot);
 
         if ($client && !empty($slot->googleeventid)) {
             if ($regcount > 0) {
@@ -1116,8 +1116,8 @@ function block_googlemeet_tutorials_rebuild_series_occurrences(
     }
 
     foreach (block_googlemeet_tutorials_get_series_slots($seriesid) as $slot) {
-        $DB->delete_records('block_googlemeet_tut_reg', ['slotid' => $slot->id]);
-        $DB->delete_records('block_googlemeet_tut_slot', ['id' => $slot->id]);
+        $DB->delete_records('block_googlemeet_tutorials_reg', ['slotid' => $slot->id]);
+        $DB->delete_records('block_googlemeet_tutorials_slot', ['id' => $slot->id]);
     }
 
     $recurrenceconfig = [
@@ -1143,7 +1143,7 @@ function block_googlemeet_tutorials_rebuild_series_occurrences(
     $series->rrule = $rrule;
     $series->google_recurring_id = '';
     $series->timemodified = time();
-    $DB->update_record('block_googlemeet_tut_series', $series);
+    $DB->update_record('block_googlemeet_tutorials_series', $series);
 
     $instancemap = [];
     if ($maxstudents > 1) {
@@ -1161,7 +1161,7 @@ function block_googlemeet_tutorials_rebuild_series_occurrences(
         );
         block_googlemeet_tutorials_persist_google_token($hostuserid, $client);
         $series->google_recurring_id = $ge->getId();
-        $DB->update_record('block_googlemeet_tut_series', $series);
+        $DB->update_record('block_googlemeet_tutorials_series', $series);
         $instances = calendar_api::list_instances($client, $ge->getId());
         $instancemap = block_googlemeet_tutorials_map_instances_to_occurrences($instances, $occurrences);
     }
@@ -1187,7 +1187,7 @@ function block_googlemeet_tutorials_rebuild_series_occurrences(
             'timecreated' => $now,
             'timemodified' => $now,
         ];
-        $DB->insert_record('block_googlemeet_tut_slot', $row);
+        $DB->insert_record('block_googlemeet_tutorials_slot', $row);
     }
 }
 
@@ -1229,8 +1229,8 @@ function block_googlemeet_tutorials_delete_series(\stdClass $series): void {
     }
 
     foreach (block_googlemeet_tutorials_get_series_slots((int) $series->id) as $slot) {
-        $DB->delete_records('block_googlemeet_tut_reg', ['slotid' => $slot->id]);
-        $DB->delete_records('block_googlemeet_tut_slot', ['id' => $slot->id]);
+        $DB->delete_records('block_googlemeet_tutorials_reg', ['slotid' => $slot->id]);
+        $DB->delete_records('block_googlemeet_tutorials_slot', ['id' => $slot->id]);
     }
-    $DB->delete_records('block_googlemeet_tut_series', ['id' => $series->id]);
+    $DB->delete_records('block_googlemeet_tutorials_series', ['id' => $series->id]);
 }

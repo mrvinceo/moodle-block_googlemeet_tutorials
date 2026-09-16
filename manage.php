@@ -65,7 +65,7 @@ if (!$ismanager) {
     $sql .= ' AND userid = :userid';
     $params['userid'] = $USER->id;
 }
-$slots = $DB->get_records_select('block_googlemeet_tut_slot', $sql, $params, 'timestart ASC');
+$slots = $DB->get_records_select('block_googlemeet_tutorials_slot', $sql, $params, 'timestart ASC');
 
 // Additionally fetch site-wide slots: owner sees their own; manager sees all where host manages this course.
 $swsql = 'scope = 1 AND status = 1';
@@ -74,7 +74,7 @@ if (!$ismanager) {
     $swsql .= ' AND userid = :userid';
     $swparams['userid'] = $USER->id;
 }
-foreach ($DB->get_records_select('block_googlemeet_tut_slot', $swsql, $swparams, 'timestart ASC') as $sw) {
+foreach ($DB->get_records_select('block_googlemeet_tutorials_slot', $swsql, $swparams, 'timestart ASC') as $sw) {
     if (isset($slots[$sw->id])) {
         continue;
     }
@@ -92,7 +92,7 @@ $seriescounts = [];
 foreach ($slots as $s) {
     if (!empty($s->seriesid)) {
         if (!isset($seriescounts[$s->seriesid])) {
-            $seriescounts[$s->seriesid] = $DB->count_records('block_googlemeet_tut_slot', [
+            $seriescounts[$s->seriesid] = $DB->count_records('block_googlemeet_tutorials_slot', [
                 'seriesid' => $s->seriesid,
                 'status' => 1,
             ]);

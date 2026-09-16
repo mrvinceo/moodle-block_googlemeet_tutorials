@@ -35,7 +35,7 @@ $custom = [
 $series = null;
 if ($id) {
     // Load site-wide slots by id only (not restricted to origin courseid).
-    $slot = $DB->get_record('block_googlemeet_tut_slot', ['id' => $id], '*', MUST_EXIST);
+    $slot = $DB->get_record('block_googlemeet_tutorials_slot', ['id' => $id], '*', MUST_EXIST);
     // Authorization: must be in management course or origin course, and be owner or have viewallslots.
     if ((int) $slot->userid !== (int) $USER->id && !has_capability('block/googlemeet_tutorials:viewallslots', $context)) {
         throw new moodle_exception('nopermission', 'block_googlemeet_tutorials');
@@ -48,7 +48,7 @@ if ($id) {
     }
     if (!empty($slot->seriesid)) {
         $custom['hasseries'] = true;
-        $series = $DB->get_record('block_googlemeet_tut_series', ['id' => $slot->seriesid], '*', MUST_EXIST);
+        $series = $DB->get_record('block_googlemeet_tutorials_series', ['id' => $slot->seriesid], '*', MUST_EXIST);
         if (block_googlemeet_tutorials_series_has_registrations((int) $series->id)) {
             $custom['lockseriesfields'] = true;
         }
@@ -105,13 +105,13 @@ if ($form->is_cancelled()) {
 if ($data = $form->get_data()) {
     try {
         if (!empty($data->id)) {
-            $old = $DB->get_record('block_googlemeet_tut_slot', ['id' => (int) $data->id], '*', MUST_EXIST);
+            $old = $DB->get_record('block_googlemeet_tutorials_slot', ['id' => (int) $data->id], '*', MUST_EXIST);
             if ((int) $old->userid !== (int) $USER->id && !has_capability('block/googlemeet_tutorials:viewallslots', $context)) {
                 throw new moodle_exception('nopermission', 'block_googlemeet_tutorials');
             }
             $editscope = $data->editscope ?? 'slot';
             if ($editscope === 'series' && !empty($old->seriesid)) {
-                $ser = $DB->get_record('block_googlemeet_tut_series', ['id' => $old->seriesid], '*', MUST_EXIST);
+                $ser = $DB->get_record('block_googlemeet_tutorials_series', ['id' => $old->seriesid], '*', MUST_EXIST);
                 block_googlemeet_tutorials_update_series(
                     $ser,
                     $data->title,

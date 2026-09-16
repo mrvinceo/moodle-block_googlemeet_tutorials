@@ -15,7 +15,7 @@ require_login($course);
 $context = context_course::instance($courseid);
 
 // Load slot by ID only; course-visibility is re-checked by the helper below.
-$slot = $DB->get_record('block_googlemeet_tut_slot', ['id' => $slotid], '*', MUST_EXIST);
+$slot = $DB->get_record('block_googlemeet_tutorials_slot', ['id' => $slotid], '*', MUST_EXIST);
 $return = new moodle_url('/blocks/googlemeet_tutorials/schedule.php', ['courseid' => $courseid]);
 
 // Confirm the slot is actually visible in the viewed course before acting.
