@@ -1,11 +1,12 @@
 # Google Meet tutorials (Moodle block)
+### Author: Paul Vincent
 
 **Plugin type:** block  
 **Frankenstyle:** `block_googlemeet_tutorials`  
 **Requires:** Moodle 4.5+  
 **License:** GNU GPL v3 or later
 
-Course block for booking capacity-limited Google Meet tutorial slots. Tutors create one-off or recurring slots; students register until capacity is reached; Meet links and Calendar attendees stay in sync via the tutor’s Google account.
+Course block for booking capacity-limited Google Meet tutorial slots - largely replicating Google Calendar's 'Appointment Schedules' but contained within Moodle and incorporating participant limits, to allow for group meetings. Tutors / Staff create one-off or recurring slots; students register until capacity is reached; Meet links and Calendar attendees stay in sync via the tutor’s Google account.
 
 ## Features
 
