@@ -91,6 +91,7 @@ $string['successunregistered'] = 'You are no longer registered.';
 $string['emailrequired'] = 'Your profile must include a valid email address to register.';
 $string['onlycourse'] = 'This block is only available in courses.';
 $string['successgoogleauth'] = 'Google Calendar connected successfully.';
+$string['oauthstateinvalid'] = 'Google connection could not be completed because the request was invalid or expired. Please try connecting again.';
 
 $string['scope'] = 'Availability';
 $string['scope_course'] = 'This course only';

@@ -6,13 +6,23 @@ require_once($CFG->dirroot . '/blocks/googlemeet_tutorials/locallib.php');
 
 require_login();
 
-global $SESSION, $DB, $USER;
+global $SESSION, $USER;
 
 $code = optional_param('code', '', PARAM_RAW);
+$state = required_param('state', PARAM_ALPHANUM);
+
 $returnurl = !empty($SESSION->googlemeet_tutorials_return_url)
     ? $SESSION->googlemeet_tutorials_return_url
     : (new moodle_url('/'))->out(false);
 unset($SESSION->googlemeet_tutorials_return_url);
+
+$expectedstate = $SESSION->googlemeet_tutorials_oauth_state ?? '';
+unset($SESSION->googlemeet_tutorials_oauth_state);
+
+if ($expectedstate === '' || !hash_equals($expectedstate, $state)) {
+    redirect(new moodle_url($returnurl), get_string('oauthstateinvalid', 'block_googlemeet_tutorials'),
+        null, \core\output\notification::NOTIFY_ERROR);
+}
 
 if (!$code) {
     redirect(new moodle_url($returnurl), get_string('googlenotconnected', 'block_googlemeet_tutorials'),
