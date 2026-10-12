@@ -677,6 +677,80 @@ function block_googlemeet_tutorials_delete_slot(\stdClass $slot): void {
 }
 
 /**
+ * Remove all tutorial data owned by a course (slots, series, registrations).
+ *
+ * Called when a course is deleted. Linked Google Calendar events are cancelled
+ * when the host still has a valid token (best effort; Moodle rows are always removed).
+ *
+ * Also deletes registrations that used this course as registrationcourseid
+ * (students who registered for a site-wide slot from this course).
+ *
+ * @param int $courseid Course being deleted
+ */
+function block_googlemeet_tutorials_delete_for_course(int $courseid): void {
+    global $DB;
+
+    $slots = $DB->get_records('block_googlemeet_tutorials_slot', ['courseid' => $courseid]);
+    $serieswithmaster = [];
+
+    // Prefer deleting recurring masters once per series.
+    $seriesids = [];
+    foreach ($slots as $slot) {
+        if (!empty($slot->seriesid)) {
+            $seriesids[(int) $slot->seriesid] = true;
+        }
+    }
+    foreach (array_keys($seriesids) as $seriesid) {
+        $series = $DB->get_record('block_googlemeet_tutorials_series', ['id' => $seriesid]);
+        if (!$series || empty($series->google_recurring_id)) {
+            continue;
+        }
+        $client = block_googlemeet_tutorials_get_calendar_client((int) $series->userid);
+        if (!$client) {
+            continue;
+        }
+        try {
+            calendar_api::delete_recurring_master($client, $series->google_recurring_id);
+            block_googlemeet_tutorials_persist_google_token((int) $series->userid, $client);
+            $serieswithmaster[$seriesid] = true;
+        } catch (\Throwable $e) {
+            // Continue; individual instances may still be removed below.
+        }
+    }
+
+    foreach ($slots as $slot) {
+        $seriesid = !empty($slot->seriesid) ? (int) $slot->seriesid : 0;
+        if ($seriesid && !empty($serieswithmaster[$seriesid])) {
+            continue;
+        }
+        if (empty($slot->googleeventid)) {
+            continue;
+        }
+        $client = block_googlemeet_tutorials_get_calendar_client((int) $slot->userid);
+        if (!$client) {
+            continue;
+        }
+        try {
+            calendar_api::delete_event($client, $slot->googleeventid);
+            block_googlemeet_tutorials_persist_google_token((int) $slot->userid, $client);
+        } catch (\Throwable $e) {
+            // Continue deleting Moodle rows.
+        }
+    }
+
+    $slotids = array_keys($slots);
+    if ($slotids) {
+        list($insql, $params) = $DB->get_in_or_equal($slotids);
+        $DB->delete_records_select('block_googlemeet_tutorials_reg', "slotid $insql", $params);
+        $DB->delete_records('block_googlemeet_tutorials_slot', ['courseid' => $courseid]);
+    }
+    $DB->delete_records('block_googlemeet_tutorials_series', ['courseid' => $courseid]);
+
+    // Registrations made from this course for slots that may live elsewhere (site-wide).
+    $DB->delete_records('block_googlemeet_tutorials_reg', ['registrationcourseid' => $courseid]);
+}
+
+/**
  * @return int new slot id
  */
 function block_googlemeet_tutorials_insert_slot(

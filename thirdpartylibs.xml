@@ -26,8 +26,8 @@
   </library>
   <library>
     <location>vendor/psr/cache</location>
-    <name>psr/cache</name>
-    <description>PSR-6 caching interface used by google/auth.</description>
+    <name>PSR-6 Caching Interface</name>
+    <description>Common interface for caching libraries (psr/cache), used by google/auth.</description>
     <version>3.0.0</version>
     <license>MIT</license>
     <repository>https://github.com/php-fig/cache</repository>
