@@ -64,6 +64,23 @@ The plugin stores tutorial slots, series metadata, student registrations, and Go
 
 ## Changelog
 
+### 1.0.5
+
+Marketplace review fixes (issues highlighted by [volodymyrdovhan](https://github.com/volodymyrdovhan) on GitHub):
+
+- OAuth `state` CSRF protection on Google connect/callback
+- Privacy provider: correct external metadata fields; export/delete series data
+- Full Moodle GPL boilerplate on source files
+- Portable DML for upgrade backfill (no MySQL-only `UPDATE … JOIN`)
+- Stricter slot edit/delete authorisation (course/scope checks)
+- Slim Composer vendor: use Moodle core Guzzle/JWT/Monolog/PSR; exact `thirdpartylibs.xml` versions
+- Clean up slots/series/registrations (and linked Calendar events) on course delete
+- Rebuild AMD with Grunt (`.min.js` + source map)
+
+### 1.0.4
+
+- Rename DB tables to frankenstyle-prefixed names for plugin validation
+
 ### 1.0.3
 
 - Sync slot times/Meet URLs from Google Calendar (manage page button; also on student register when linked)
