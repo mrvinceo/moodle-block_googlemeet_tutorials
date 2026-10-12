@@ -34,6 +34,10 @@ require_once($CFG->dirroot . '/blocks/googlemeet_tutorials/classes/local/recurre
 /**
  * Load Google API client autoload and Calendar service resource classes.
  *
+ * Composer is configured with prepend-autoloader=false and "replace" entries for
+ * libraries Moodle core already ships (Guzzle, firebase/php-jwt, Monolog, PSR
+ * HTTP/log, etc.) so this autoloader does not override core class versions.
+ *
  * The Calendar service constructor instantiates every Resource\* class. On some
  * servers the PSR-4 autoloader does not resolve those until too late, causing
  * "Class Google\Service\Calendar\Resource\Acl not found". Preloading the
@@ -58,6 +62,34 @@ function block_googlemeet_tutorials_google_sdk_bootstrap(): void {
         }
     }
     $done = true;
+}
+
+/**
+ * Configure a Google API client instance (shared OAuth / Calendar settings).
+ *
+ * Uses a PSR NullLogger so Monolog (not shipped; provided by core on newer
+ * Moodle versions) is never autoloaded from this plugin.
+ *
+ * @return \Google_Client
+ */
+function block_googlemeet_tutorials_make_google_client(): \Google_Client {
+    block_googlemeet_tutorials_google_sdk_bootstrap();
+    $cfg = get_config('block_googlemeet_tutorials');
+    $redirecturi = block_googlemeet_tutorials_auth_callback_url()->out(false);
+
+    $client = new \Google_Client();
+    $client->setLogger(new \Psr\Log\NullLogger());
+    $client->setApplicationName('Moodle Google Meet tutorials');
+    $client->setScopes('https://www.googleapis.com/auth/calendar.events');
+    if (!empty($cfg->apikey)) {
+        $client->setDeveloperKey($cfg->apikey);
+    }
+    $client->setClientId($cfg->clientid ?? '');
+    $client->setClientSecret($cfg->clientsecret ?? '');
+    $client->setRedirectUri($redirecturi);
+    $client->setAccessType('offline');
+    $client->setPrompt('consent');
+    return $client;
 }
 
 /**
@@ -118,19 +150,7 @@ function block_googlemeet_tutorials_get_calendar_client(int $userid): ?\Google_C
         return null;
     }
 
-    $redirecturi = block_googlemeet_tutorials_auth_callback_url()->out(false);
-
-    $client = new \Google_Client();
-    $client->setApplicationName('Moodle Google Meet tutorials');
-    $client->setScopes('https://www.googleapis.com/auth/calendar.events');
-    if (!empty($cfg->apikey)) {
-        $client->setDeveloperKey($cfg->apikey);
-    }
-    $client->setClientId($cfg->clientid);
-    $client->setClientSecret($cfg->clientsecret);
-    $client->setRedirectUri($redirecturi);
-    $client->setAccessType('offline');
-    $client->setPrompt('consent');
+    $client = block_googlemeet_tutorials_make_google_client();
     $client->setAccessToken($userrow->token);
 
     if ($client->isAccessTokenExpired()) {
@@ -152,21 +172,7 @@ function block_googlemeet_tutorials_get_calendar_client(int $userid): ?\Google_C
  * Build a Google client suitable for starting the OAuth browser flow (no stored token required).
  */
 function block_googlemeet_tutorials_new_oauth_client(): \Google_Client {
-    block_googlemeet_tutorials_google_sdk_bootstrap();
-    $cfg = get_config('block_googlemeet_tutorials');
-    $redirecturi = block_googlemeet_tutorials_auth_callback_url()->out(false);
-    $client = new \Google_Client();
-    $client->setApplicationName('Moodle Google Meet tutorials');
-    $client->setScopes('https://www.googleapis.com/auth/calendar.events');
-    if (!empty($cfg->apikey)) {
-        $client->setDeveloperKey($cfg->apikey);
-    }
-    $client->setClientId($cfg->clientid);
-    $client->setClientSecret($cfg->clientsecret);
-    $client->setRedirectUri($redirecturi);
-    $client->setAccessType('offline');
-    $client->setPrompt('consent');
-    return $client;
+    return block_googlemeet_tutorials_make_google_client();
 }
 
 function block_googlemeet_tutorials_user_timezone(\stdClass $user): string {

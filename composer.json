@@ -2,8 +2,28 @@
     "name": "moodle/block_googlemeet_tutorials",
     "description": "Google API client for Moodle Google Meet tutorials block",
     "type": "library",
+    "license": "GPL-3.0-or-later",
     "require": {
-        "google/apiclient": "^2.12"
+        "php": ">=8.1",
+        "google/apiclient": "^2.15"
+    },
+    "config": {
+        "sort-packages": true,
+        "optimize-autoloader": true,
+        "prepend-autoloader": false
+    },
+    "replace": {
+        "firebase/php-jwt": "*",
+        "guzzlehttp/guzzle": "*",
+        "guzzlehttp/promises": "*",
+        "guzzlehttp/psr7": "*",
+        "monolog/monolog": "*",
+        "psr/http-client": "*",
+        "psr/http-factory": "*",
+        "psr/http-message": "*",
+        "psr/log": "*",
+        "ralouphie/getallheaders": "*",
+        "symfony/deprecation-contracts": "*"
     },
     "scripts": {
         "pre-autoload-dump": "Google\\Task\\Composer::cleanup"
