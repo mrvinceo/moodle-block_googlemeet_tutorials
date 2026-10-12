@@ -52,9 +52,12 @@ class provider implements
             'user_email' => 'privacy:metadata:token:email',
         ], 'privacy:metadata:tokens');
 
-        $collection->add_external_location_link('google_calendar', 'privacy:metadata:google_calendar', [
-            'email' => 'privacy:metadata:token:email',
-        ]);
+        $collection->add_external_location_link('google_calendar', [
+            'email' => 'privacy:metadata:google_calendar:email',
+            'fullname' => 'privacy:metadata:google_calendar:fullname',
+            'title' => 'privacy:metadata:google_calendar:title',
+            'description' => 'privacy:metadata:google_calendar:description',
+        ], 'privacy:metadata:google_calendar');
 
         return $collection;
     }
@@ -79,6 +82,10 @@ class provider implements
                              WHERE s.courseid = c.id AND s.userid = :hostid
                         )
                         OR EXISTS (
+                            SELECT 1 FROM {block_googlemeet_tutorials_series} ser
+                             WHERE ser.courseid = c.id AND ser.userid = :serieshostid
+                        )
+                        OR EXISTS (
                             SELECT 1 FROM {block_googlemeet_tutorials_reg} r
                              WHERE r.userid = :regid
                                AND (
@@ -94,6 +101,7 @@ class provider implements
         $params = [
             'courselevel' => CONTEXT_COURSE,
             'hostid' => $userid,
+            'serieshostid' => $userid,
             'regid' => $userid,
         ];
         $contextlist->add_from_sql($sql, $params);
@@ -149,6 +157,28 @@ class provider implements
                 );
             }
 
+            // Hosted recurring series in this course.
+            $series = $DB->get_records_select(
+                'block_googlemeet_tutorials_series',
+                'courseid = ? AND userid = ?',
+                [$courseid, $userid]
+            );
+            foreach ($series as $ser) {
+                writer::with_context($context)->export_data(
+                    [get_string('privacy:path:series', 'block_googlemeet_tutorials'), $ser->id],
+                    (object) [
+                        'title' => $ser->title,
+                        'timestart' => $ser->timestart,
+                        'timeend' => $ser->timeend,
+                        'maxstudents' => $ser->maxstudents,
+                        'scope' => (int) ($ser->scope ?? 0),
+                        'usegroups' => (int) ($ser->usegroups ?? 1),
+                        'recurrence_preset' => $ser->recurrence_preset,
+                        'recuruntil' => $ser->recuruntil,
+                    ]
+                );
+            }
+
             // Registrations where registrationcourseid = this course (or legacy: slot's origin course).
             $sql = "SELECT r.*
                       FROM {block_googlemeet_tutorials_reg} r
@@ -191,6 +221,7 @@ class provider implements
             $DB->delete_records_select('block_googlemeet_tutorials_reg', "slotid $insql", $params);
             $DB->delete_records('block_googlemeet_tutorials_slot', ['courseid' => $courseid]);
         }
+        $DB->delete_records('block_googlemeet_tutorials_series', ['courseid' => $courseid]);
         // Also delete registrations recorded as coming from this course (site-wide slots).
         $DB->delete_records('block_googlemeet_tutorials_reg', ['registrationcourseid' => $courseid]);
     }
@@ -226,6 +257,7 @@ class provider implements
                 $DB->delete_records('block_googlemeet_tutorials_reg', ['slotid' => $h->id]);
             }
             $DB->delete_records('block_googlemeet_tutorials_slot', ['courseid' => $courseid, 'userid' => $userid]);
+            $DB->delete_records('block_googlemeet_tutorials_series', ['courseid' => $courseid, 'userid' => $userid]);
         }
     }
 
@@ -245,6 +277,8 @@ class provider implements
         $courseid = $context->instanceid;
         $sql = "SELECT s.userid AS userid FROM {block_googlemeet_tutorials_slot} s WHERE s.courseid = :c1
                 UNION
+                SELECT ser.userid FROM {block_googlemeet_tutorials_series} ser WHERE ser.courseid = :cseries
+                UNION
                 SELECT r.userid FROM {block_googlemeet_tutorials_reg} r
                   JOIN {block_googlemeet_tutorials_slot} s2 ON s2.id = r.slotid
                  WHERE s2.courseid = :c2
@@ -253,6 +287,7 @@ class provider implements
                  WHERE r2.registrationcourseid = :c3";
         $userlist->add_from_sql('userid', $sql, [
             'c1' => $courseid,
+            'cseries' => $courseid,
             'c2' => $courseid,
             'c3' => $courseid,
         ]);
@@ -296,5 +331,10 @@ class provider implements
             $DB->delete_records('block_googlemeet_tutorials_reg', ['slotid' => $slot->id]);
             $DB->delete_records('block_googlemeet_tutorials_slot', ['id' => $slot->id]);
         }
+        $DB->delete_records_select(
+            'block_googlemeet_tutorials_series',
+            "courseid = :courseid AND userid $insql",
+            $params
+        );
     }
 }

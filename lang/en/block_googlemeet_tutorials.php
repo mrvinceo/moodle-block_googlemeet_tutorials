@@ -28,8 +28,13 @@ $string['privacy:metadata:series:usegroups'] = 'Whether series slots are limited
 $string['privacy:metadata:reg:userid'] = 'The registered user.';
 $string['privacy:metadata:reg:slotid'] = 'The slot.';
 $string['privacy:metadata:reg:registrationcourseid'] = 'The course from which the student registered.';
-$string['privacy:metadata:google_calendar'] = 'Google Calendar may store event details and attendee email addresses when slots are created or students register.';
+$string['privacy:metadata:google_calendar'] = 'Google Calendar stores event details when slots are created or students register. Student names and emails, and slot titles and descriptions, may be sent to Google.';
+$string['privacy:metadata:google_calendar:email'] = 'The email address of a registered student, or of the host Google account.';
+$string['privacy:metadata:google_calendar:fullname'] = 'The full name of a registered student, sent as a calendar attendee display name.';
+$string['privacy:metadata:google_calendar:title'] = 'The tutorial slot title, used as the Google Calendar event title.';
+$string['privacy:metadata:google_calendar:description'] = 'The tutorial slot description, used as the Google Calendar event description.';
 $string['privacy:path:slots'] = 'Tutorial slots hosted';
+$string['privacy:path:series'] = 'Tutorial series hosted';
 $string['privacy:path:regs'] = 'Tutorial registrations';
 
 $string['connectgoogle'] = 'Connect Google Calendar';
