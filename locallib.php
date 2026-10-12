@@ -238,6 +238,48 @@ function block_googlemeet_tutorials_host_manages_in_course(int $hostuserid, int 
     return $cache[$key];
 }
 
+/**
+ * Whether a slot may be managed from the given course (course membership / site-wide host rule).
+ *
+ * Course-scoped slots must belong to this course. Site-wide slots are allowed only when their
+ * host has manageslots in this course.
+ *
+ * @param \stdClass $slot Slot record
+ * @param int $courseid Course context from which management is attempted
+ * @return bool
+ */
+function block_googlemeet_tutorials_slot_manageable_in_course(\stdClass $slot, int $courseid): bool {
+    $scope = (int) ($slot->scope ?? 0);
+    if ($scope === 0) {
+        return (int) $slot->courseid === $courseid;
+    }
+    return block_googlemeet_tutorials_host_manages_in_course((int) $slot->userid, $courseid);
+}
+
+/**
+ * Require that the current user can manage the given slot from this course context.
+ *
+ * @param \stdClass $slot Slot record
+ * @param int $courseid Course id from the request
+ * @param \context_course $context Course context
+ * @throws moodle_exception
+ */
+function block_googlemeet_tutorials_require_can_manage_slot(
+    \stdClass $slot,
+    int $courseid,
+    \context_course $context
+): void {
+    global $USER;
+
+    if (!block_googlemeet_tutorials_slot_manageable_in_course($slot, $courseid)) {
+        throw new moodle_exception('nopermission', 'block_googlemeet_tutorials');
+    }
+    if ((int) $slot->userid !== (int) $USER->id
+            && !has_capability('block/googlemeet_tutorials:viewallslots', $context)) {
+        throw new moodle_exception('nopermission', 'block_googlemeet_tutorials');
+    }
+}
+
 function block_googlemeet_tutorials_slot_visible_to_user(
     \stdClass $slot,
     int $courseid,

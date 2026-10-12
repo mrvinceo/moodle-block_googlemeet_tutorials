@@ -55,12 +55,10 @@ $custom = [
 
 $series = null;
 if ($id) {
-    // Load site-wide slots by id only (not restricted to origin courseid).
+    // Load by id so site-wide slots (origin course != viewed course) can be edited,
+    // then enforce course/scope + ownership rules.
     $slot = $DB->get_record('block_googlemeet_tutorials_slot', ['id' => $id], '*', MUST_EXIST);
-    // Authorization: must be in management course or origin course, and be owner or have viewallslots.
-    if ((int) $slot->userid !== (int) $USER->id && !has_capability('block/googlemeet_tutorials:viewallslots', $context)) {
-        throw new moodle_exception('nopermission', 'block_googlemeet_tutorials');
-    }
+    block_googlemeet_tutorials_require_can_manage_slot($slot, $courseid, $context);
     $custom['savedscope'] = (int) ($slot->scope ?? 0);
     $regcount = block_googlemeet_tutorials_count_registrations($id);
     if ($regcount > 0) {
@@ -127,9 +125,7 @@ if ($data = $form->get_data()) {
     try {
         if (!empty($data->id)) {
             $old = $DB->get_record('block_googlemeet_tutorials_slot', ['id' => (int) $data->id], '*', MUST_EXIST);
-            if ((int) $old->userid !== (int) $USER->id && !has_capability('block/googlemeet_tutorials:viewallslots', $context)) {
-                throw new moodle_exception('nopermission', 'block_googlemeet_tutorials');
-            }
+            block_googlemeet_tutorials_require_can_manage_slot($old, $courseid, $context);
             $editscope = $data->editscope ?? 'slot';
             if ($editscope === 'series' && !empty($old->seriesid)) {
                 $ser = $DB->get_record('block_googlemeet_tutorials_series', ['id' => $old->seriesid], '*', MUST_EXIST);

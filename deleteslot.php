@@ -35,11 +35,10 @@ require_login($course);
 $context = context_course::instance($courseid);
 require_capability('block/googlemeet_tutorials:manageslots', $context);
 
-// Load by id only so site-wide slots (origin course != viewed course) can be deleted.
+// Load by id so site-wide slots (origin course != viewed course) can be deleted,
+// then enforce course/scope + ownership rules.
 $slot = $DB->get_record('block_googlemeet_tutorials_slot', ['id' => $slotid], '*', MUST_EXIST);
-if ((int) $slot->userid !== (int) $USER->id && !has_capability('block/googlemeet_tutorials:viewallslots', $context)) {
-    throw new moodle_exception('nopermission', 'block_googlemeet_tutorials');
-}
+block_googlemeet_tutorials_require_can_manage_slot($slot, $courseid, $context);
 
 $series = null;
 $seriescount = 0;
